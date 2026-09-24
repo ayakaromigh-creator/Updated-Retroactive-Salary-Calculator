@@ -1,0 +1,255 @@
+
+<h2 class="sr-only">Retroactive salary/wage increase payment calculator</h2>
+
+<style>
+  .retro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
+  .retro-field { display: flex; flex-direction: column; gap: 6px; }
+  .retro-field label { font-size: 13px; color: var(--color-text-secondary); }
+  .retro-field input, .retro-field select { width: 100%; box-sizing: border-box; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; }
+  .metric-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .metric-value { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+  .metric-sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+  .table-wrap { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  th { background: var(--color-background-secondary); color: var(--color-text-secondary); font-weight: 500; padding: 8px 12px; text-align: left; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  td { padding: 8px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+  tr:last-child td { border-bottom: none; }
+  .highlight td { background: var(--color-background-secondary); font-weight: 500; }
+  .section-title { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); margin: 1.5rem 0 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+
+<div style="padding: 1rem 0;">
+
+  <div class="section-title">Pay details</div>
+  <div class="retro-grid">
+    <div class="retro-field">
+      <label>Pay type</label>
+      <select id="payType">
+        <option value="annual">Annual salary</option>
+        <option value="hourly">Hourly wage</option>
+      </select>
+    </div>
+    <div class="retro-field" id="hoursField" style="display:none;">
+      <label>Hours per week</label>
+      <input type="number" id="hoursPerWeek" value="40" min="1" max="168" step="1" />
+    </div>
+    <div class="retro-field">
+      <label id="oldPayLabel">Old annual salary</label>
+      <input type="number" id="oldPay" value="60000" min="0" step="1" />
+    </div>
+    <div class="retro-field">
+      <label id="newPayLabel">New annual salary</label>
+      <input type="number" id="newPay" value="65000" min="0" step="1" />
+    </div>
+  </div>
+
+  <div class="section-title">Retroactive period</div>
+  <div class="retro-grid">
+    <div class="retro-field">
+      <label>Effective date (start of retro period)</label>
+      <input type="date" id="effectiveDate" />
+    </div>
+    <div class="retro-field">
+      <label>Payment date (end of retro period)</label>
+      <input type="date" id="paymentDate" />
+    </div>
+    <div class="retro-field">
+      <label>Pay frequency</label>
+      <select id="payFreq">
+        <option value="12" selected>Monthly (12/yr)</option>
+        <option value="24">Semi-monthly (24/yr)</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="results" style="display:none;">
+    <div class="section-title">Summary</div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="metric-label">Total retroactive payment</div>
+        <div class="metric-value" id="sumGross">—</div>
+        <div class="metric-sub">gross amount owed</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Monthly gross retro amount</div>
+        <div class="metric-value" id="sumMonthlyRetro">—</div>
+        <div class="metric-sub">avg per month owed</div>
+      </div>
+    </div>
+
+    <div class="section-title">Pay period breakdown</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Old pay</th>
+            <th>New pay</th>
+            <th>Difference</th>
+          </tr>
+        </thead>
+        <tbody id="breakdown"></tbody>
+        <tfoot>
+          <tr class="highlight">
+            <td>Total</td>
+            <td id="tOld">—</td>
+            <td id="tNew">—</td>
+            <td id="tDiff">—</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div id="noResults" style="color: var(--color-text-secondary); font-size: 14px; padding: 1rem 0; display:none;">
+    The effective date must be before the payment date.
+  </div>
+</div>
+
+<script>
+const fmtDec = v => v.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+const msPerDay = 86400000;
+
+function setDefaults() {
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('effectiveDate').value = today.toISOString().slice(0,10);
+  document.getElementById('paymentDate').value = tomorrow.toISOString().slice(0,10);
+}
+
+function getPayPerPeriod(payType, value, freq, hoursPerWeek) {
+  if (payType === 'annual') return value / freq;
+  return (value * hoursPerWeek * 52) / freq;
+}
+
+function daysBetween(a, b) {
+  return Math.round((b - a) / msPerDay) + 1;
+}
+
+// Returns the full period boundaries (ignoring retro start/end) for a given date
+function getFullPeriodBounds(date, freq) {
+  if (freq == 24) {
+    const isFirstHalf = date.getDate() <= 15;
+    const start = isFirstHalf
+      ? new Date(date.getFullYear(), date.getMonth(), 1)
+      : new Date(date.getFullYear(), date.getMonth(), 16);
+    const end = isFirstHalf
+      ? new Date(date.getFullYear(), date.getMonth(), 15)
+      : new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { start, end };
+  } else {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    return { start, end };
+  }
+}
+
+function getPeriodDates(startDate, endDate, freq) {
+  const periods = [];
+  let current = new Date(startDate);
+
+  while (current <= endDate) {
+    const bounds = getFullPeriodBounds(current, freq);
+
+    // Clamp actual start/end to the retro window
+    const actualStart = current > bounds.start ? current : bounds.start;
+    const actualEnd = bounds.end <= endDate ? bounds.end : endDate;
+
+    const fullDays = daysBetween(bounds.start, bounds.end);
+    const actualDays = daysBetween(actualStart, actualEnd);
+    const fraction = actualDays / fullDays;
+
+    periods.push({ start: new Date(actualStart), end: new Date(actualEnd), fraction });
+
+    // Advance to day after this period ends
+    current = new Date(bounds.end.getTime() + msPerDay);
+  }
+
+  return periods;
+}
+
+function daysBetweenExclusive(a, b) {
+  return Math.round((b - a) / msPerDay);
+}
+
+function dateStr(d) {
+  return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+}
+
+function calculate() {
+  const payType = document.getElementById('payType').value;
+  const oldPay = parseFloat(document.getElementById('oldPay').value) || 0;
+  const newPay = parseFloat(document.getElementById('newPay').value) || 0;
+  const freq = parseInt(document.getElementById('payFreq').value);
+  const hoursPerWeek = parseFloat(document.getElementById('hoursPerWeek').value) || 40;
+  const effectiveDateVal = document.getElementById('effectiveDate').value;
+  const paymentDateVal = document.getElementById('paymentDate').value;
+
+  if (!effectiveDateVal || !paymentDateVal) return;
+  const startDate = new Date(effectiveDateVal + 'T00:00:00');
+  const endDate = new Date(paymentDateVal + 'T00:00:00');
+
+  const resultsEl = document.getElementById('results');
+  const noResultsEl = document.getElementById('noResults');
+
+  if (startDate >= endDate) {
+    resultsEl.style.display = 'none';
+    noResultsEl.style.display = 'block';
+    return;
+  }
+  noResultsEl.style.display = 'none';
+
+  const oldPerPeriod = getPayPerPeriod(payType, oldPay, freq, hoursPerWeek);
+  const newPerPeriod = getPayPerPeriod(payType, newPay, freq, hoursPerWeek);
+  const periods = getPeriodDates(startDate, endDate, freq);
+
+  let totalOld = 0, totalNew = 0, totalDiff = 0;
+  const tbody = document.getElementById('breakdown');
+  tbody.innerHTML = '';
+
+  periods.forEach(p => {
+    const old_ = oldPerPeriod * p.fraction;
+    const new_ = newPerPeriod * p.fraction;
+    const diff = new_ - old_;
+    totalOld += old_;
+    totalNew += new_;
+    totalDiff += diff;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${dateStr(p.start)} – ${dateStr(p.end)}</td><td>${fmtDec(old_)}</td><td>${fmtDec(new_)}</td><td style="color:#3B6D11">+${fmtDec(diff)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('tOld').textContent = fmtDec(totalOld);
+  document.getElementById('tNew').textContent = fmtDec(totalNew);
+  document.getElementById('tDiff').textContent = '+' + fmtDec(totalDiff);
+  document.getElementById('sumGross').textContent = fmtDec(totalDiff);
+
+  // Monthly retro = total diff / number of months spanned
+  const totalDays = daysBetween(startDate, endDate);
+  const months = totalDays / 30.4375;
+  document.getElementById('sumMonthlyRetro').textContent = fmtDec(totalDiff / months);
+
+  resultsEl.style.display = 'block';
+}
+
+document.getElementById('payType').addEventListener('change', function() {
+  const isHourly = this.value === 'hourly';
+  document.getElementById('hoursField').style.display = isHourly ? 'flex' : 'none';
+  document.getElementById('oldPayLabel').textContent = isHourly ? 'Old hourly rate' : 'Old annual salary';
+  document.getElementById('newPayLabel').textContent = isHourly ? 'New hourly rate' : 'New annual salary';
+  document.getElementById('oldPay').value = isHourly ? 20 : 60000;
+  document.getElementById('newPay').value = isHourly ? 22 : 65000;
+  calculate();
+});
+
+['oldPay','newPay','payFreq','effectiveDate','paymentDate','hoursPerWeek'].forEach(id => {
+  document.getElementById(id).addEventListener('input', calculate);
+  document.getElementById(id).addEventListener('change', calculate);
+});
+
+setDefaults();
+calculate();
+</script>
