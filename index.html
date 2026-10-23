@@ -1,112 +1,118 @@
-
-<h2 class="sr-only">Retroactive salary/wage increase payment calculator</h2>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retroactive Salary Calculator</title>
 <style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 24px; background: #fff; color: #1a1a1a; max-width: 800px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; }
   .retro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
+  @media (max-width: 500px) { .retro-grid { grid-template-columns: 1fr; } }
   .retro-field { display: flex; flex-direction: column; gap: 6px; }
-  .retro-field label { font-size: 13px; color: var(--color-text-secondary); }
-  .retro-field input, .retro-field select { width: 100%; box-sizing: border-box; }
+  .retro-field label { font-size: 13px; color: #666; }
+  .retro-field input, .retro-field select { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: #fff; color: #1a1a1a; }
   .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
-  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; }
-  .metric-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
-  .metric-value { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
-  .metric-sub { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
-  .table-wrap { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; margin-bottom: 1rem; }
+  .metric { background: #f5f5f5; border-radius: 8px; padding: 1rem; }
+  .metric-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .metric-value { font-size: 22px; font-weight: 500; color: #1a1a1a; }
+  .metric-sub { font-size: 12px; color: #888; margin-top: 2px; }
+  .table-wrap { border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-  th { background: var(--color-background-secondary); color: var(--color-text-secondary); font-weight: 500; padding: 8px 12px; text-align: left; border-bottom: 0.5px solid var(--color-border-tertiary); }
-  td { padding: 8px 12px; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); }
+  th { background: #f5f5f5; color: #666; font-weight: 500; padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e5e5; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e5e5e5; color: #1a1a1a; }
   tr:last-child td { border-bottom: none; }
-  .highlight td { background: var(--color-background-secondary); font-weight: 500; }
-  .section-title { font-size: 14px; font-weight: 500; color: var(--color-text-secondary); margin: 1.5rem 0 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .highlight td { background: #f5f5f5; font-weight: 500; }
+  .section-title { font-size: 13px; font-weight: 600; color: #888; margin: 1.5rem 0 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .error { color: #888; font-size: 14px; padding: 1rem 0; display: none; }
 </style>
+</head>
+<body>
+<h1>Retroactive Salary Calculator</h1>
 
-<div style="padding: 1rem 0;">
-
-  <div class="section-title">Pay details</div>
-  <div class="retro-grid">
-    <div class="retro-field">
-      <label>Pay type</label>
-      <select id="payType">
-        <option value="annual">Annual salary</option>
-        <option value="hourly">Hourly wage</option>
-      </select>
-    </div>
-    <div class="retro-field" id="hoursField" style="display:none;">
-      <label>Hours per week</label>
-      <input type="number" id="hoursPerWeek" value="40" min="1" max="168" step="1" />
-    </div>
-    <div class="retro-field">
-      <label id="oldPayLabel">Old annual salary</label>
-      <input type="number" id="oldPay" value="60000" min="0" step="1" />
-    </div>
-    <div class="retro-field">
-      <label id="newPayLabel">New annual salary</label>
-      <input type="number" id="newPay" value="65000" min="0" step="1" />
-    </div>
+<div class="section-title">Pay details</div>
+<div class="retro-grid">
+  <div class="retro-field">
+    <label>Pay type</label>
+    <select id="payType">
+      <option value="annual">Annual salary</option>
+      <option value="hourly">Hourly wage</option>
+    </select>
   </div>
-
-  <div class="section-title">Retroactive period</div>
-  <div class="retro-grid">
-    <div class="retro-field">
-      <label>Effective date (start of retro period)</label>
-      <input type="date" id="effectiveDate" />
-    </div>
-    <div class="retro-field">
-      <label>Payment date (end of retro period)</label>
-      <input type="date" id="paymentDate" />
-    </div>
-    <div class="retro-field">
-      <label>Pay frequency</label>
-      <select id="payFreq">
-        <option value="12" selected>Monthly (12/yr)</option>
-        <option value="24">Semi-monthly (24/yr)</option>
-      </select>
-    </div>
+  <div class="retro-field" id="hoursField" style="display:none;">
+    <label>Hours per week</label>
+    <input type="number" id="hoursPerWeek" value="40" min="1" max="168" step="1" />
   </div>
-
-  <div id="results" style="display:none;">
-    <div class="section-title">Summary</div>
-    <div class="metric-grid">
-      <div class="metric">
-        <div class="metric-label">Total retroactive payment</div>
-        <div class="metric-value" id="sumGross">—</div>
-        <div class="metric-sub">gross amount owed</div>
-      </div>
-      <div class="metric">
-        <div class="metric-label">Monthly gross retro amount</div>
-        <div class="metric-value" id="sumMonthlyRetro">—</div>
-        <div class="metric-sub">avg per month owed</div>
-      </div>
-    </div>
-
-    <div class="section-title">Pay period breakdown</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Period</th>
-            <th>Old pay</th>
-            <th>New pay</th>
-            <th>Difference</th>
-          </tr>
-        </thead>
-        <tbody id="breakdown"></tbody>
-        <tfoot>
-          <tr class="highlight">
-            <td>Total</td>
-            <td id="tOld">—</td>
-            <td id="tNew">—</td>
-            <td id="tDiff">—</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+  <div class="retro-field">
+    <label id="oldPayLabel">Old annual salary</label>
+    <input type="number" id="oldPay" value="60000" min="0" step="1" />
   </div>
-
-  <div id="noResults" style="color: var(--color-text-secondary); font-size: 14px; padding: 1rem 0; display:none;">
-    The effective date must be before the payment date.
+  <div class="retro-field">
+    <label id="newPayLabel">New annual salary</label>
+    <input type="number" id="newPay" value="65000" min="0" step="1" />
   </div>
 </div>
+
+<div class="section-title">Retroactive period</div>
+<div class="retro-grid">
+  <div class="retro-field">
+    <label>Effective date (start of retro period)</label>
+    <input type="date" id="effectiveDate" />
+  </div>
+  <div class="retro-field">
+    <label>Payment date (end of retro period)</label>
+    <input type="date" id="paymentDate" />
+  </div>
+  <div class="retro-field">
+    <label>Pay frequency</label>
+    <select id="payFreq">
+      <option value="12" selected>Monthly (12/yr)</option>
+      <option value="24">Semi-monthly (24/yr)</option>
+    </select>
+  </div>
+</div>
+
+<div id="results" style="display:none;">
+  <div class="section-title">Summary</div>
+  <div class="metric-grid">
+    <div class="metric">
+      <div class="metric-label">Total retroactive payment</div>
+      <div class="metric-value" id="sumGross">—</div>
+      <div class="metric-sub">gross amount owed</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Monthly gross retro amount</div>
+      <div class="metric-value" id="sumMonthlyRetro">—</div>
+      <div class="metric-sub">avg per month owed</div>
+    </div>
+  </div>
+
+  <div class="section-title">Pay period breakdown</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th>Old pay</th>
+          <th>New pay</th>
+          <th>Difference</th>
+        </tr>
+      </thead>
+      <tbody id="breakdown"></tbody>
+      <tfoot>
+        <tr class="highlight">
+          <td>Total</td>
+          <td id="tOld">—</td>
+          <td id="tNew">—</td>
+          <td id="tDiff">—</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<div class="error" id="noResults">The effective date must be before the payment date.</div>
 
 <script>
 const fmtDec = v => v.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -129,7 +135,6 @@ function daysBetween(a, b) {
   return Math.round((b - a) / msPerDay) + 1;
 }
 
-// Returns the full period boundaries (ignoring retro start/end) for a given date
 function getFullPeriodBounds(date, freq) {
   if (freq == 24) {
     const isFirstHalf = date.getDate() <= 15;
@@ -150,29 +155,24 @@ function getFullPeriodBounds(date, freq) {
 function getPeriodDates(startDate, endDate, freq) {
   const periods = [];
   let current = new Date(startDate);
-
   while (current <= endDate) {
     const bounds = getFullPeriodBounds(current, freq);
-
-    // Clamp actual start/end to the retro window
     const actualStart = current > bounds.start ? current : bounds.start;
     const actualEnd = bounds.end <= endDate ? bounds.end : endDate;
-
     const fullDays = daysBetween(bounds.start, bounds.end);
     const actualDays = daysBetween(actualStart, actualEnd);
-    const fraction = actualDays / fullDays;
-
-    periods.push({ start: new Date(actualStart), end: new Date(actualEnd), fraction });
-
-    // Advance to day after this period ends
+    periods.push({ start: new Date(actualStart), end: new Date(actualEnd), fraction: actualDays / fullDays });
     current = new Date(bounds.end.getTime() + msPerDay);
   }
-
   return periods;
 }
 
-function daysBetweenExclusive(a, b) {
-  return Math.round((b - a) / msPerDay);
+function calcMonthsSpanned(periods, freq) {
+  if (freq == 24) {
+    return periods.reduce((sum, p) => sum + p.fraction * 0.5, 0);
+  } else {
+    return periods.reduce((sum, p) => sum + p.fraction, 0);
+  }
 }
 
 function dateStr(d) {
@@ -214,11 +214,9 @@ function calculate() {
     const old_ = oldPerPeriod * p.fraction;
     const new_ = newPerPeriod * p.fraction;
     const diff = new_ - old_;
-    totalOld += old_;
-    totalNew += new_;
-    totalDiff += diff;
+    totalOld += old_; totalNew += new_; totalDiff += diff;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${dateStr(p.start)} – ${dateStr(p.end)}</td><td>${fmtDec(old_)}</td><td>${fmtDec(new_)}</td><td style="color:#3B6D11">+${fmtDec(diff)}</td>`;
+    tr.innerHTML = `<td>${dateStr(p.start)} – ${dateStr(p.end)}</td><td>${fmtDec(old_)}</td><td>${fmtDec(new_)}</td><td style="color:#3a7d11">+${fmtDec(diff)}</td>`;
     tbody.appendChild(tr);
   });
 
@@ -227,10 +225,8 @@ function calculate() {
   document.getElementById('tDiff').textContent = '+' + fmtDec(totalDiff);
   document.getElementById('sumGross').textContent = fmtDec(totalDiff);
 
-  // Monthly retro = total diff / number of months spanned
-  const totalDays = daysBetween(startDate, endDate);
-  const months = totalDays / 30.4375;
-  document.getElementById('sumMonthlyRetro').textContent = fmtDec(totalDiff / months);
+  const monthsSpanned = calcMonthsSpanned(periods, freq);
+  document.getElementById('sumMonthlyRetro').textContent = fmtDec(totalDiff / monthsSpanned);
 
   resultsEl.style.display = 'block';
 }
@@ -253,3 +249,5 @@ document.getElementById('payType').addEventListener('change', function() {
 setDefaults();
 calculate();
 </script>
+</body>
+</html>
